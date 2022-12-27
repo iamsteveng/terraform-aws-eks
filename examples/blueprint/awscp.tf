@@ -103,7 +103,7 @@ resource "local_file" "manifest" {
     ecr_uri = module.ecr[each.key].url
   })
   filename        = "${path.cwd}/hellojs.yaml"
-  file_permission = "0400"
+  file_permission = "0666"
 }
 
 resource "local_file" "localbuild" {
@@ -112,5 +112,5 @@ resource "local_file" "localbuild" {
     ecr_uri = module.ecr["hellojs"].url
   })
   filename        = "${path.module}/apps/hellojs/localbuild.sh"
-  file_permission = "0400"
+  file_permission = "0666"
 }
