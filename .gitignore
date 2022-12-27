@@ -35,3 +35,5 @@ kubeconfig
 
 # Local .DS_Store
 **/.DS_Store
+examples/blueprint/hellojs.yaml
+examples/blueprint/apps/hellojs/localbuild.sh
