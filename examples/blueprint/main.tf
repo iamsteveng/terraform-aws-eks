@@ -16,6 +16,10 @@ provider "helm" {
   }
 }
 
+locals {
+  cluster_name = "${var.name}-eks-${random_string.suffix.result}"
+}
+
 ### vpc
 module "vpc" {
   source  = "Young-ook/vpc/aws"
@@ -23,10 +27,24 @@ module "vpc" {
   name    = var.name
   tags    = var.tags
   vpc_config = var.use_default_vpc ? null : {
-    azs         = var.azs
-    cidr        = "10.10.0.0/16"
-    subnet_type = "private"
-    single_ngw  = true
+    azs             = var.azs
+    cidr            = var.cidr
+    private_subnets = var.private_subnets
+    public_subnets  = var.public_subnets
+
+    enable_nat_gateway   = true
+    single_nat_gateway   = true
+    enable_dns_hostnames = true
+
+    public_subnet_tags = {
+      "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+      "kubernetes.io/role/elb"                      = 1
+    }
+
+    private_subnet_tags = {
+      "kubernetes.io/cluster/${local.cluster_name}" = "shared"
+      "kubernetes.io/role/internal-elb"             = 1
+    }
   }
 
   # Amazon ECS tasks using the Fargate launch type and platform version 1.3.0 or earlier only require
@@ -65,9 +83,9 @@ module "vpc" {
 module "eks" {
   source              = "Young-ook/eks/aws"
   version             = "1.7.11"
-  name                = var.name
+  name                = local.cluster_name
   tags                = var.tags
-  subnets             = slice(values(module.vpc.subnets[var.use_default_vpc ? "public" : "private"]), 0, 3)
+  subnets             = values(module.vpc.subnets[var.use_default_vpc ? "public" : "private"])
   enable_ssm          = var.enable_ssm
   kubernetes_version  = var.kubernetes_version
   fargate_profiles    = (var.use_default_vpc ? [] : var.fargate_profiles)
@@ -190,19 +208,19 @@ module "helm-addons" {
       oidc        = module.eks.oidc
       policy_arns = [aws_iam_policy.kpt.arn]
     },
-    {
-      repository     = "${path.module}/charts/"
-      name           = "cluster-autoscaler"
-      chart_name     = "cluster-autoscaler"
-      namespace      = "kube-system"
-      serviceaccount = "cluster-autoscaler"
-      values = {
-        "awsRegion"                 = var.aws_region
-        "autoDiscovery.clusterName" = module.eks.cluster.name
-      }
-      oidc        = module.eks.oidc
-      policy_arns = [aws_iam_policy.cas.arn]
-    },
+    # {
+    #   repository     = "${path.module}/charts/"
+    #   name           = "cluster-autoscaler"
+    #   chart_name     = "cluster-autoscaler"
+    #   namespace      = "kube-system"
+    #   serviceaccount = "cluster-autoscaler"
+    #   values = {
+    #     "awsRegion"                 = var.aws_region
+    #     "autoDiscovery.clusterName" = module.eks.cluster.name
+    #   }
+    #   oidc        = module.eks.oidc
+    #   policy_arns = [aws_iam_policy.cas.arn]
+    # },
     {
       repository     = "https://kubernetes-sigs.github.io/metrics-server/"
       name           = "metrics-server"
@@ -242,4 +260,9 @@ resource "aws_iam_policy" "cas" {
   tags        = merge({ "terraform.io" = "managed" }, var.tags)
   description = format("Allow cluster-autoscaler to manage AWS resources")
   policy      = file("${path.module}/cluster-autoscaler-policy.json")
+}
+
+resource "random_string" "suffix" {
+  length  = 8
+  special = false
 }
