@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
-    bucket = "terraform-state-backend-20230108"
+    bucket = "terraform-state-backend-20230109"
     key    = "cornerstone"
-    region = "ap-southeast-1"
+    region = "ap-east-1"
   }
 }
