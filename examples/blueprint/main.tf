@@ -90,7 +90,6 @@ module "eks" {
   kubernetes_version  = var.kubernetes_version
   fargate_profiles    = (var.use_default_vpc ? [] : var.fargate_profiles)
   managed_node_groups = var.managed_node_groups
-  node_groups         = var.node_groups
 }
 
 ### aws partitions
